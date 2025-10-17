@@ -26,14 +26,20 @@ const io = socketIo(server, {
 // Socket.IOインスタンスをアプリに保存（ルートからアクセスするため）
 app.set('io', io);
 
+// プロキシ信頼設定（ngrok用）
+app.set('trust proxy', 1);
+
 // セキュリティミドルウェア
 app.use(helmet());
 
-// レート制限
+// レート制限（プロキシ対応）
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分
   max: 100, // 最大100リクエスト
-  message: 'リクエストが多すぎます。しばらく待ってから再試行してください。'
+  message: 'リクエストが多すぎます。しばらく待ってから再試行してください。',
+  standardHeaders: true,
+  legacyHeaders: false,
+  trustProxy: true
 });
 app.use(limiter);
 
@@ -73,6 +79,22 @@ app.get('/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// ルートエンドポイント
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Balance-focused Multiplayer Slot Game API',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/auth',
+      users: '/api/users', 
+      slot: '/api/slot',
+      stats: '/api/stats',
+      team: '/api/team',
+      health: '/health'
+    }
   });
 });
 
@@ -173,7 +195,8 @@ io.on('connection', (socket) => {
 
 // サーバー起動
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`サーバーがポート ${PORT} で起動しました`);
+server.listen(PORT, '127.0.0.1', () => {
+  console.log(`サーバーがポート ${PORT} で起動しました (127.0.0.1)`);
   console.log(`環境: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`アクセスURL: http://127.0.0.1:${PORT}`);
 });
